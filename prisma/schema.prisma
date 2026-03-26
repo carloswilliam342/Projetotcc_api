@@ -1,0 +1,150 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Teacher {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  login     String   @unique
+  password  String
+  status    String   @default("active") // "active" | "inactive"
+  subject   String
+  createdAt DateTime @default(now())
+
+  classes Class[]
+
+  @@map("teachers")
+}
+
+model Class {
+  id        String @id @default(uuid())
+  name      String
+  year      String
+  shift     String // "morning" | "afternoon" | "evening"
+  teacherId String
+
+  teacher      Teacher             @relation(fields: [teacherId], references: [id])
+  students     Student[]
+  routines     RoutineItem[]
+  observations LessonObservation[]
+
+  @@map("classes")
+}
+
+model Student {
+  id                 String @id @default(uuid())
+  name               String
+  classId            String
+  registrationNumber String
+  birthDate          String
+  needsTea           Boolean @default(false)
+  needsTdah          Boolean @default(false)
+  otherNeeds         String  @default("")
+  needsObservations  String  @default("")
+
+  class              Class                @relation(fields: [classId], references: [id])
+  profile            StudentProfile?
+  observations       LessonObservation[]
+  performanceRecords PerformanceRecord[]
+
+  @@map("students")
+}
+
+model StudentProfile {
+  id               String   @id @default(uuid())
+  studentId        String   @unique
+  neurodivergence  String[] @default([])
+  difficulties     String[] @default([])
+  performanceLevel String   @default("beginner") // "beginner" | "intermediate" | "advanced"
+  notes            String   @default("")
+
+  student Student @relation(fields: [studentId], references: [id])
+
+  @@map("student_profiles")
+}
+
+model Activity {
+  id              String   @id @default(uuid())
+  title           String
+  subject         String
+  description     String
+  visualResources String[] @default([])
+  difficulty      Int
+  adaptedFor      String[] @default([])
+  createdAt       DateTime @default(now())
+
+  steps              ActivityStep[]
+  routines           RoutineItem[]
+  observations       LessonObservation[]
+  performanceRecords PerformanceRecord[]
+
+  @@map("activities")
+}
+
+model ActivityStep {
+  id          String @id @default(uuid())
+  activityId  String
+  order       Int
+  description String
+
+  activity Activity @relation(fields: [activityId], references: [id], onDelete: Cascade)
+
+  @@map("activity_steps")
+}
+
+model RoutineItem {
+  id           String  @id @default(uuid())
+  classId      String
+  dayOfWeek    Int
+  time         String
+  title        String
+  activityId   String?
+  reminder     Boolean @default(false)
+  reminderText String?
+  color        String
+
+  class    Class     @relation(fields: [classId], references: [id])
+  activity Activity? @relation(fields: [activityId], references: [id])
+
+  @@map("routine_items")
+}
+
+model LessonObservation {
+  id            String @id @default(uuid())
+  studentId     String
+  classId       String
+  date          String
+  behavior      String // "excellent" | "good" | "regular" | "difficult"
+  participation String // "high" | "medium" | "low"
+  completion    String // "completed" | "completed_with_help" | "not_completed"
+  notes         String @default("")
+  activityId    String?
+
+  student  Student   @relation(fields: [studentId], references: [id])
+  class    Class     @relation(fields: [classId], references: [id])
+  activity Activity? @relation(fields: [activityId], references: [id])
+
+  @@map("lesson_observations")
+}
+
+model PerformanceRecord {
+  id              String @id @default(uuid())
+  studentId       String
+  activityId      String
+  activityTitle   String
+  date            String
+  status          String // "completed" | "completed_with_help" | "not_completed"
+  difficultyLevel Int
+  notes           String @default("")
+
+  student  Student  @relation(fields: [studentId], references: [id])
+  activity Activity @relation(fields: [activityId], references: [id])
+
+  @@map("performance_records")
+}
