@@ -7,7 +7,10 @@ const router = Router();
 router.get('/', async (_req, res) => {
   try {
     const activities = await prisma.activity.findMany({
-      include: { steps: { orderBy: { order: 'asc' } } },
+      include: { 
+        steps: { orderBy: { order: 'asc' } },
+        student: true,
+      },
       orderBy: { createdAt: 'desc' },
     });
     res.json(activities);
@@ -21,7 +24,10 @@ router.get('/:id', async (req, res) => {
   try {
     const activity = await prisma.activity.findUnique({
       where: { id: req.params.id },
-      include: { steps: { orderBy: { order: 'asc' } } },
+      include: { 
+        steps: { orderBy: { order: 'asc' } },
+        student: true,
+      },
     });
     if (!activity) return res.status(404).json({ error: 'Atividade não encontrada' });
     return res.json(activity);
@@ -39,7 +45,10 @@ router.post('/', async (req, res) => {
         ...activityData,
         steps: steps ? { create: steps } : undefined,
       },
-      include: { steps: { orderBy: { order: 'asc' } } },
+      include: { 
+        steps: { orderBy: { order: 'asc' } },
+        student: true,
+      },
     });
     res.status(201).json(activity);
   } catch (error) {
@@ -63,7 +72,10 @@ router.put('/:id', async (req, res) => {
         ...activityData,
         steps: steps ? { create: steps } : undefined,
       },
-      include: { steps: { orderBy: { order: 'asc' } } },
+      include: { 
+        steps: { orderBy: { order: 'asc' } },
+        student: true, 
+      },
     });
     res.json(activity);
   } catch (error) {

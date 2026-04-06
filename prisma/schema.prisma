@@ -52,6 +52,7 @@ model Student {
   profile            StudentProfile?
   observations       LessonObservation[]
   performanceRecords PerformanceRecord[]
+  activities         Activity[]
 
   @@map("students")
 }
@@ -77,8 +78,10 @@ model Activity {
   visualResources String[] @default([])
   difficulty      Int
   adaptedFor      String[] @default([])
+  studentId       String?
   createdAt       DateTime @default(now())
 
+  student            Student?            @relation(fields: [studentId], references: [id], onDelete: SetNull)
   steps              ActivityStep[]
   routines           RoutineItem[]
   observations       LessonObservation[]

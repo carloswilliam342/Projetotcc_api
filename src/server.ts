@@ -11,6 +11,7 @@ import routineRoutes from './routes/routineRoutes';
 import observationRoutes from './routes/observationRoutes';
 import performanceRoutes from './routes/performanceRoutes';
 import authRoutes from './routes/authRoutes';
+import aiRoutes from './routes/aiRoutes';
 
 dotenv.config();
 
@@ -31,6 +32,7 @@ app.use('/api/activities', activityRoutes);
 app.use('/api/routines', routineRoutes);
 app.use('/api/observations', observationRoutes);
 app.use('/api/performance', performanceRoutes);
+app.use('/api/ai', aiRoutes);
 
 // Health check
 app.get('/api/health', (_req, res) => {
