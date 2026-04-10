@@ -51,8 +51,13 @@ router.post('/login', async (req, res) => {
   try {
     const { login, password } = req.body;
 
-    const teacher = await prisma.teacher.findUnique({
-      where: { login },
+    const teacher = await prisma.teacher.findFirst({
+      where: {
+        OR: [
+          { login: login },
+          { email: login }
+        ]
+      },
     });
 
     const passwordMatch = teacher ? await bcrypt.compare(password, teacher.password) : false;
