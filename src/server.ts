@@ -26,14 +26,7 @@ console.log(`🔗 DATABASE_URL: ${dbUrl ? dbUrl.substring(0, 30) + '...' : 'NÃO
 console.log(`🌐 FRONTEND_URL: ${process.env.FRONTEND_URL || 'NÃO DEFINIDA'}`);
 
 // Middlewares
-const allowedOrigins = process.env.FRONTEND_URL
-  ? [process.env.FRONTEND_URL, 'http://localhost:5173']
-  : ['http://localhost:5173'];
-
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true,
-}));
+app.use(cors());
 app.use(express.json());
 
 // Rotas
