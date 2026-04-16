@@ -15,6 +15,7 @@ model Teacher {
   password  String
   status    String   @default("active") // "active" | "inactive"
   subject   String
+  role  String  @default("teacher")  // "master" | "teacher"
   createdAt DateTime @default(now())
 
   classes Class[]

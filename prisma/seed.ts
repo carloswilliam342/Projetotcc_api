@@ -1,4 +1,5 @@
 import { PrismaClient } from '@prisma/client';
+import bcrypt from 'bcrypt';
 
 const prisma = new PrismaClient();
 
@@ -18,26 +19,41 @@ async function main() {
 
   console.log('📋 Dados antigos removidos.');
 
+  // Usuário Master (Administrador do Sistema)
+  const adminHash = await bcrypt.hash('admin123', 10);
+  await prisma.teacher.create({
+    data: {
+      id: 'admin',
+      name: 'Administrador do Sistema',
+      email: 'admin@escola.edu.br',
+      login: 'admin',
+      password: adminHash,
+      status: 'active',
+      subject: 'Administração',
+      role: 'master',
+    },
+  });
+
   // Teachers
   const t1 = await prisma.teacher.create({
     data: {
       id: 't1', name: 'Maria Silva', email: 'maria.silva@escola.edu.br',
       login: 'maria.silva', password: '123456', status: 'active',
-      subject: 'Educação Especial',
+      subject: 'Educação Especial', role: 'teacher',
     },
   });
   const t2 = await prisma.teacher.create({
     data: {
       id: 't2', name: 'João Santos', email: 'joao.santos@escola.edu.br',
       login: 'joao.santos', password: '123456', status: 'active',
-      subject: 'Pedagogia',
+      subject: 'Pedagogia', role: 'teacher',
     },
   });
   await prisma.teacher.create({
     data: {
       id: 't3', name: 'Ana Lima', email: 'ana.lima@escola.edu.br',
       login: 'ana.lima', password: '123456', status: 'inactive',
-      subject: 'Psicopedagogia',
+      subject: 'Psicopedagogia', role: 'teacher',
     },
   });
   console.log('👩‍🏫 Professores criados.');
