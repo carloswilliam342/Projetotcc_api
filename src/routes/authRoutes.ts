@@ -1,5 +1,6 @@
 import { Router } from 'express';
 import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
 import prisma from '../prisma';
 
 const SALT_ROUNDS = 10;
@@ -11,32 +12,18 @@ router.post('/register', async (req, res) => {
   try {
     const { name, email, login, password, subject } = req.body;
 
-    // Validação dos campos obrigatórios
     if (!name || !email || !login || !password || !subject) {
       return res.status(400).json({ error: 'Todos os campos são obrigatórios: name, email, login, password, subject' });
     }
 
-    // Verifica se o login já está em uso
-    const existingTeacher = await prisma.teacher.findUnique({
-      where: { login },
-    });
-
+    const existingTeacher = await prisma.teacher.findUnique({ where: { login } });
     if (existingTeacher) {
       return res.status(409).json({ error: 'Login já está em uso' });
     }
 
-    // Cria o professor
     const hashedPassword = await bcrypt.hash(password, SALT_ROUNDS);
-
     const teacher = await prisma.teacher.create({
-      data: {
-        name,
-        email,
-        login,
-        password: hashedPassword,
-        subject,
-        status: 'active',
-      },
+      data: { name, email, login, password: hashedPassword, subject, status: 'active' },
     });
 
     const { password: _, ...teacherWithoutPassword } = teacher;
@@ -52,12 +39,7 @@ router.post('/login', async (req, res) => {
     const { login, password } = req.body;
 
     const teacher = await prisma.teacher.findFirst({
-      where: {
-        OR: [
-          { login: login },
-          { email: login }
-        ]
-      },
+      where: { OR: [{ login }, { email: login }] },
     });
 
     const passwordMatch = teacher ? await bcrypt.compare(password, teacher.password) : false;
@@ -67,11 +49,17 @@ router.post('/login', async (req, res) => {
     }
 
     const { password: _, ...teacherWithoutPassword } = teacher;
-    return res.json({ user: teacherWithoutPassword });
+
+    const token = jwt.sign(
+      { id: teacher.id, role: teacher.role },
+      process.env.JWT_SECRET!,
+      { expiresIn: 8 * 60 * 60 } // 8 horas em segundos
+    );
+
+    return res.json({ user: teacherWithoutPassword, token });
   } catch (error) {
     return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
 export default router;
-

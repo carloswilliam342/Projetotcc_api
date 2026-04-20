@@ -7,6 +7,7 @@ const router = Router();
 router.get('/', async (_req, res) => {
   try {
     const teachers = await prisma.teacher.findMany({
+      omit: { password: true },
       orderBy: { name: 'asc' },
     });
     res.json(teachers);
@@ -20,6 +21,7 @@ router.get('/:id', async (req, res) => {
   try {
     const teacher = await prisma.teacher.findUnique({
       where: { id: req.params.id },
+      omit: { password: true },
       include: { classes: true },
     });
     if (!teacher) return res.status(404).json({ error: 'Professor não encontrado' });
@@ -34,6 +36,7 @@ router.post('/', async (req, res) => {
   try {
     const teacher = await prisma.teacher.create({
       data: req.body,
+      omit: { password: true },
     });
     res.status(201).json(teacher);
   } catch (error) {
@@ -47,6 +50,7 @@ router.put('/:id', async (req, res) => {
     const teacher = await prisma.teacher.update({
       where: { id: req.params.id },
       data: req.body,
+      omit: { password: true },
     });
     res.json(teacher);
   } catch (error) {

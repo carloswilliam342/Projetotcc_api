@@ -12,52 +12,48 @@ import observationRoutes from './routes/observationRoutes';
 import performanceRoutes from './routes/performanceRoutes';
 import authRoutes from './routes/authRoutes';
 import aiRoutes from './routes/aiRoutes';
-import prisma from './prisma';
+import { authenticateToken } from './middleware/auth';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-// Log de configuração na inicialização
-const dbUrl = process.env.DATABASE_URL || '';
-console.log(`📦 NODE_ENV: ${process.env.NODE_ENV}`);
-console.log(`🔗 DATABASE_URL: ${dbUrl ? dbUrl.substring(0, 30) + '...' : 'NÃO DEFINIDA'}`);
-console.log(`🌐 FRONTEND_URL: ${process.env.FRONTEND_URL || 'NÃO DEFINIDA'}`);
+const allowedOrigins = [
+  process.env.FRONTEND_URL || 'http://localhost:5173',
+  'http://localhost:5173',
+  'http://localhost:3000',
+];
 
-// Middlewares
-app.use(cors());
+app.use(cors({
+  origin: (origin, callback) => {
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+}));
 app.use(express.json());
 
-// Rotas
+// Rotas públicas
 app.use('/api/auth', authRoutes);
-app.use('/api/teachers', teacherRoutes);
-app.use('/api/classes', classRoutes);
-app.use('/api/students', studentRoutes);
-app.use('/api/student-profiles', studentProfileRoutes);
-app.use('/api/activities', activityRoutes);
-app.use('/api/routines', routineRoutes);
-app.use('/api/observations', observationRoutes);
-app.use('/api/performance', performanceRoutes);
-app.use('/api/ai', aiRoutes);
-
-// Health check
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
-// Diagnostic endpoint - testa conexão com banco
-app.get('/api/diag', async (_req, res) => {
-  try {
-    const result = await prisma.$queryRaw`SELECT 1 as ok`;
-    const teacherCount = await prisma.teacher.count();
-    res.json({ db: 'connected', result, teacherCount, dbUrl: dbUrl ? dbUrl.substring(0, 30) + '...' : 'NOT SET' });
-  } catch (error: any) {
-    res.status(500).json({ db: 'error', message: error.message, dbUrl: dbUrl ? dbUrl.substring(0, 30) + '...' : 'NOT SET' });
-  }
-});
+// Rotas protegidas
+app.use('/api/teachers', authenticateToken, teacherRoutes);
+app.use('/api/classes', authenticateToken, classRoutes);
+app.use('/api/students', authenticateToken, studentRoutes);
+app.use('/api/student-profiles', authenticateToken, studentProfileRoutes);
+app.use('/api/activities', authenticateToken, activityRoutes);
+app.use('/api/routines', authenticateToken, routineRoutes);
+app.use('/api/observations', authenticateToken, observationRoutes);
+app.use('/api/performance', authenticateToken, performanceRoutes);
+app.use('/api/ai', authenticateToken, aiRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
 });
-
