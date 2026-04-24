@@ -1,13 +1,23 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import prisma from '../prisma';
 
 const router = Router();
+
+const classSchema = z.object({
+  name: z.string().min(1, 'Nome da turma é obrigatório'),
+  year: z.string().min(1, 'Ano é obrigatório'),
+  shift: z.enum(['morning', 'afternoon', 'evening']),
+  teacherId: z.string().uuid('ID do professor inválido'),
+});
+
+const updateClassSchema = classSchema.partial();
 
 // Listar todas as turmas
 router.get('/', async (_req, res) => {
   try {
     const classes = await prisma.class.findMany({
-      include: { teacher: true },
+      include: { teacher: true, students: { include: { profile: true } } },
       orderBy: { name: 'asc' },
     });
     res.json(classes);
@@ -33,12 +43,16 @@ router.get('/:id', async (req, res) => {
 // Criar turma
 router.post('/', async (req, res) => {
   try {
+    const data = classSchema.parse(req.body);
     const classItem = await prisma.class.create({
-      data: req.body,
+      data,
       include: { teacher: true },
     });
     res.status(201).json(classItem);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Dados inválidos', details: error.issues });
+    }
     res.status(500).json({ error: 'Erro ao criar turma' });
   }
 });
@@ -46,13 +60,17 @@ router.post('/', async (req, res) => {
 // Atualizar turma
 router.put('/:id', async (req, res) => {
   try {
+    const data = updateClassSchema.parse(req.body);
     const classItem = await prisma.class.update({
       where: { id: req.params.id },
-      data: req.body,
+      data,
       include: { teacher: true },
     });
     res.json(classItem);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Dados inválidos', details: error.issues });
+    }
     res.status(500).json({ error: 'Erro ao atualizar turma' });
   }
 });

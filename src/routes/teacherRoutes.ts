@@ -1,16 +1,66 @@
 import { Router } from 'express';
+import bcrypt from 'bcrypt';
+import { z } from 'zod';
 import prisma from '../prisma';
 
 const router = Router();
+const SALT_ROUNDS = 10;
 
-// Listar todos os professores
-router.get('/', async (_req, res) => {
+const createTeacherSchema = z.object({
+  name: z.string().min(1, 'Nome é obrigatório'),
+  email: z.string().email('E-mail inválido'),
+  login: z.string().min(1, 'Login é obrigatório'),
+  password: z.string().min(6, 'A senha deve ter no mínimo 6 caracteres'),
+  subject: z.string().min(1, 'Disciplina é obrigatória'),
+  status: z.enum(['active', 'inactive']).default('active'),
+  role: z.enum(['teacher', 'master']).optional(),
+});
+
+const updateTeacherSchema = z.object({
+  name: z.string().min(1).optional(),
+  email: z.string().email().optional(),
+  login: z.string().min(1).optional(),
+  password: z.string().min(6).optional().or(z.literal('')),
+  subject: z.string().min(1).optional(),
+  status: z.enum(['active', 'inactive']).optional(),
+  role: z.enum(['teacher', 'master']).optional(),
+});
+
+// Listar professores (com paginação e busca)
+router.get('/', async (req, res) => {
   try {
-    const teachers = await prisma.teacher.findMany({
-      omit: { password: true },
-      orderBy: { name: 'asc' },
+    const page = parseInt(req.query.page as string) || 1;
+    const limit = parseInt(req.query.limit as string) || 10;
+    const search = req.query.search as string || '';
+    const skip = (page - 1) * limit;
+
+    const where = search ? {
+      OR: [
+        { name: { contains: search, mode: 'insensitive' as const } },
+        { email: { contains: search, mode: 'insensitive' as const } },
+      ]
+    } : {};
+
+    const [teachers, total] = await Promise.all([
+      prisma.teacher.findMany({
+        where,
+        skip,
+        take: limit,
+        omit: { password: true },
+        orderBy: { name: 'asc' },
+      }),
+      prisma.teacher.count({ where })
+    ]);
+
+    res.json({
+      data: teachers,
+      meta: {
+        total,
+        page,
+        limit,
+        totalPages: Math.ceil(total / limit)
+      }
     });
-    res.json(teachers);
   } catch (error) {
     res.status(500).json({ error: 'Erro ao buscar professores' });
   }
@@ -34,12 +84,20 @@ router.get('/:id', async (req, res) => {
 // Criar professor
 router.post('/', async (req, res) => {
   try {
+    const data = createTeacherSchema.parse(req.body);
+    
+    // Hash da senha
+    const hashedPassword = await bcrypt.hash(data.password, SALT_ROUNDS);
+    
     const teacher = await prisma.teacher.create({
-      data: req.body,
+      data: { ...data, password: hashedPassword },
       omit: { password: true },
     });
     res.status(201).json(teacher);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Dados inválidos', details: error.issues });
+    }
     res.status(500).json({ error: 'Erro ao criar professor' });
   }
 });
@@ -47,13 +105,28 @@ router.post('/', async (req, res) => {
 // Atualizar professor
 router.put('/:id', async (req, res) => {
   try {
+    const data = updateTeacherSchema.parse(req.body);
+    
+    const updateData: any = { ...data };
+    
+    // Se a senha foi enviada e não é vazia, faz o hash
+    if (data.password && data.password.trim() !== '') {
+      updateData.password = await bcrypt.hash(data.password, SALT_ROUNDS);
+    } else {
+      // Remove a senha do objeto de atualização se for vazia/não definida
+      delete updateData.password;
+    }
+
     const teacher = await prisma.teacher.update({
       where: { id: req.params.id },
-      data: req.body,
+      data: updateData,
       omit: { password: true },
     });
     res.json(teacher);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Dados inválidos', details: error.issues });
+    }
     res.status(500).json({ error: 'Erro ao atualizar professor' });
   }
 });

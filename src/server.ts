@@ -12,7 +12,7 @@ import observationRoutes from './routes/observationRoutes';
 import performanceRoutes from './routes/performanceRoutes';
 import authRoutes from './routes/authRoutes';
 import aiRoutes from './routes/aiRoutes';
-import { authenticateToken } from './middleware/auth';
+import { authenticateToken, requireRole } from './middleware/auth';
 
 dotenv.config();
 
@@ -44,7 +44,7 @@ app.get('/api/health', (_req, res) => {
 });
 
 // Rotas protegidas
-app.use('/api/teachers', authenticateToken, teacherRoutes);
+app.use('/api/teachers', authenticateToken, requireRole('master'), teacherRoutes);
 app.use('/api/classes', authenticateToken, classRoutes);
 app.use('/api/students', authenticateToken, studentRoutes);
 app.use('/api/student-profiles', authenticateToken, studentProfileRoutes);
