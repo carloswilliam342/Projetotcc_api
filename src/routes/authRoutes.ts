@@ -29,7 +29,7 @@ router.post('/register', async (req, res) => {
     const { password: _, ...teacherWithoutPassword } = teacher;
     return res.status(201).json({ user: teacherWithoutPassword });
   } catch (error) {
-    return res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor', details: String(error) });
   }
 });
 
@@ -58,7 +58,7 @@ router.post('/login', async (req, res) => {
 
     return res.json({ user: teacherWithoutPassword, token });
   } catch (error) {
-    return res.status(500).json({ error: 'Erro interno do servidor' });
+    return res.status(500).json({ error: 'Erro interno do servidor', details: String(error) });
   }
 });
 
