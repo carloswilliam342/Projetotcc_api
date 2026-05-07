@@ -72,7 +72,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const teacher = await prisma.teacher.findUnique({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
       omit: { password: true },
       include: { classes: true },
     });
@@ -131,7 +131,7 @@ router.put('/:id', requireRole('master'), async (req: AuthRequest, res) => {
     }
 
     const teacher = await prisma.teacher.update({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
       data: updateData,
       omit: { password: true },
     });

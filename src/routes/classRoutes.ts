@@ -32,7 +32,7 @@ router.get('/', async (_req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const classItem = await prisma.class.findUnique({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
       include: { teacher: true, students: true },
     });
     if (!classItem) return res.status(404).json({ error: 'Turma não encontrada' });
@@ -75,7 +75,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
   try {
     const data = updateClassSchema.parse(req.body);
     const classItem = await prisma.class.update({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
       data,
       include: { teacher: true },
     });
@@ -102,9 +102,9 @@ router.put('/:id', async (req: AuthRequest, res) => {
 // Deletar turma
 router.delete('/:id', async (req: AuthRequest, res) => {
   try {
-    const classItem = await prisma.class.findUnique({ where: { id: req.params.id } });
+    const classItem = await prisma.class.findUnique({ where: { id: (req.params.id as string) } });
     await prisma.class.delete({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
     });
 
     await logAction({
@@ -112,8 +112,8 @@ router.delete('/:id', async (req: AuthRequest, res) => {
       userName: req.user!.role,
       action: 'DELETE',
       entity: 'class',
-      entityId: req.params.id,
-      details: `Deletou a turma "${classItem?.name ?? req.params.id}"`,
+      entityId: (req.params.id as string),
+      details: `Deletou a turma "${classItem?.name ?? (req.params.id as string)}"`,
       ip: req.ip,
     });
 

@@ -67,7 +67,7 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const student = await prisma.student.findUnique({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
       include: { class: true, profile: true, observations: true, performanceRecords: true },
     });
     if (!student) return res.status(404).json({ error: 'Aluno não encontrado' });
@@ -110,7 +110,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
   try {
     const data = updateStudentSchema.parse(req.body);
     const student = await prisma.student.update({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
       data,
       include: { class: true },
     });
