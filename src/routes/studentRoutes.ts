@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma';
+import { logAction } from '../auditLogger';
+import type { AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -76,13 +78,24 @@ router.get('/:id', async (req, res) => {
 });
 
 // Criar aluno
-router.post('/', async (req, res) => {
+router.post('/', async (req: AuthRequest, res) => {
   try {
     const data = studentSchema.parse(req.body);
     const student = await prisma.student.create({
       data,
       include: { class: true },
     });
+
+    await logAction({
+      userId: req.user!.id,
+      userName: req.user!.role,
+      action: 'CREATE',
+      entity: 'student',
+      entityId: student.id,
+      details: `Cadastrou o aluno "${student.name}"`,
+      ip: req.ip,
+    });
+
     res.status(201).json(student);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -93,7 +106,7 @@ router.post('/', async (req, res) => {
 });
 
 // Atualizar aluno
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req: AuthRequest, res) => {
   try {
     const data = updateStudentSchema.parse(req.body);
     const student = await prisma.student.update({
@@ -101,6 +114,17 @@ router.put('/:id', async (req, res) => {
       data,
       include: { class: true },
     });
+
+    await logAction({
+      userId: req.user!.id,
+      userName: req.user!.role,
+      action: 'UPDATE',
+      entity: 'student',
+      entityId: student.id,
+      details: `Atualizou o aluno "${student.name}"`,
+      ip: req.ip,
+    });
+
     res.json(student);
   } catch (error) {
     if (error instanceof z.ZodError) {

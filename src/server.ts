@@ -12,6 +12,9 @@ import observationRoutes from './routes/observationRoutes';
 import performanceRoutes from './routes/performanceRoutes';
 import authRoutes from './routes/authRoutes';
 import aiRoutes from './routes/aiRoutes';
+import dashboardRoutes from './routes/dashboardRoutes';
+import passwordResetRoutes from './routes/passwordResetRoutes';
+import systemLogRoutes from './routes/systemLogRoutes';
 import { authenticateToken, requireRole } from './middleware/auth';
 
 dotenv.config();
@@ -39,12 +42,13 @@ app.use(express.json());
 
 // Rotas públicas
 app.use('/api/auth', authRoutes);
+app.use('/api/auth', passwordResetRoutes);
 app.get('/api/health', (_req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });
 });
 
 // Rotas protegidas
-app.use('/api/teachers', authenticateToken, requireRole('master'), teacherRoutes);
+app.use('/api/teachers', authenticateToken, teacherRoutes);
 app.use('/api/classes', authenticateToken, classRoutes);
 app.use('/api/students', authenticateToken, studentRoutes);
 app.use('/api/student-profiles', authenticateToken, studentProfileRoutes);
@@ -53,7 +57,10 @@ app.use('/api/routines', authenticateToken, routineRoutes);
 app.use('/api/observations', authenticateToken, observationRoutes);
 app.use('/api/performance', authenticateToken, performanceRoutes);
 app.use('/api/ai', authenticateToken, aiRoutes);
+app.use('/api/dashboard', authenticateToken, dashboardRoutes);
+app.use('/api/system-logs', authenticateToken, requireRole('master'), systemLogRoutes);
 
 app.listen(PORT, () => {
   console.log(`🚀 Servidor rodando em http://localhost:${PORT}`);
 });
+

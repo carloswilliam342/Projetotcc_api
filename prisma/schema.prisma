@@ -18,7 +18,8 @@ model Teacher {
   role  String  @default("teacher")  // "master" | "teacher"
   createdAt DateTime @default(now())
 
-  classes Class[]
+  classes        Class[]
+  passwordResets PasswordReset[]
 
   @@map("teachers")
 }
@@ -151,4 +152,31 @@ model PerformanceRecord {
   activity Activity @relation(fields: [activityId], references: [id])
 
   @@map("performance_records")
+}
+
+model PasswordReset {
+  id        String    @id @default(uuid())
+  teacherId String
+  token     String    @unique
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  teacher Teacher @relation(fields: [teacherId], references: [id])
+
+  @@map("password_resets")
+}
+
+model SystemLog {
+  id        String   @id @default(uuid())
+  userId    String
+  userName  String
+  action    String   // "CREATE" | "UPDATE" | "DELETE"
+  entity    String   // "teacher" | "class" | "student" | "activity"
+  entityId  String?
+  details   String
+  ip        String?
+  createdAt DateTime @default(now())
+
+  @@map("system_logs")
 }

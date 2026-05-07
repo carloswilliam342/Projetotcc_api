@@ -2,6 +2,8 @@ import { Router } from 'express';
 import bcrypt from 'bcrypt';
 import { z } from 'zod';
 import prisma from '../prisma';
+import { logAction } from '../auditLogger';
+import { requireRole, type AuthRequest } from '../middleware/auth';
 
 const router = Router();
 const SALT_ROUNDS = 10;
@@ -82,7 +84,7 @@ router.get('/:id', async (req, res) => {
 });
 
 // Criar professor
-router.post('/', async (req, res) => {
+router.post('/', requireRole('master'), async (req: AuthRequest, res) => {
   try {
     const data = createTeacherSchema.parse(req.body);
     
@@ -93,6 +95,17 @@ router.post('/', async (req, res) => {
       data: { ...data, password: hashedPassword },
       omit: { password: true },
     });
+
+    await logAction({
+      userId: req.user!.id,
+      userName: 'Admin',
+      action: 'CREATE',
+      entity: 'teacher',
+      entityId: teacher.id,
+      details: `Cadastrou o professor "${teacher.name}"`,
+      ip: req.ip,
+    });
+
     res.status(201).json(teacher);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -103,7 +116,7 @@ router.post('/', async (req, res) => {
 });
 
 // Atualizar professor
-router.put('/:id', async (req, res) => {
+router.put('/:id', requireRole('master'), async (req: AuthRequest, res) => {
   try {
     const data = updateTeacherSchema.parse(req.body);
     
@@ -122,6 +135,17 @@ router.put('/:id', async (req, res) => {
       data: updateData,
       omit: { password: true },
     });
+
+    await logAction({
+      userId: req.user!.id,
+      userName: 'Admin',
+      action: 'UPDATE',
+      entity: 'teacher',
+      entityId: teacher.id,
+      details: `Atualizou o professor "${teacher.name}"`,
+      ip: req.ip,
+    });
+
     res.json(teacher);
   } catch (error) {
     if (error instanceof z.ZodError) {

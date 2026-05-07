@@ -15,6 +15,8 @@ async function main() {
   await prisma.studentProfile.deleteMany();
   await prisma.student.deleteMany();
   await prisma.class.deleteMany();
+  await prisma.passwordReset.deleteMany();
+  await prisma.systemLog.deleteMany();
   await prisma.teacher.deleteMany();
 
   console.log('📋 Dados antigos removidos.');

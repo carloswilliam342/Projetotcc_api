@@ -1,6 +1,8 @@
 import { Router } from 'express';
 import { z } from 'zod';
 import prisma from '../prisma';
+import { logAction } from '../auditLogger';
+import type { AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -41,13 +43,24 @@ router.get('/:id', async (req, res) => {
 });
 
 // Criar turma
-router.post('/', async (req, res) => {
+router.post('/', async (req: AuthRequest, res) => {
   try {
     const data = classSchema.parse(req.body);
     const classItem = await prisma.class.create({
       data,
       include: { teacher: true },
     });
+
+    await logAction({
+      userId: req.user!.id,
+      userName: req.user!.role,
+      action: 'CREATE',
+      entity: 'class',
+      entityId: classItem.id,
+      details: `Criou a turma "${classItem.name}"`,
+      ip: req.ip,
+    });
+
     res.status(201).json(classItem);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -58,7 +71,7 @@ router.post('/', async (req, res) => {
 });
 
 // Atualizar turma
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req: AuthRequest, res) => {
   try {
     const data = updateClassSchema.parse(req.body);
     const classItem = await prisma.class.update({
@@ -66,6 +79,17 @@ router.put('/:id', async (req, res) => {
       data,
       include: { teacher: true },
     });
+
+    await logAction({
+      userId: req.user!.id,
+      userName: req.user!.role,
+      action: 'UPDATE',
+      entity: 'class',
+      entityId: classItem.id,
+      details: `Atualizou a turma "${classItem.name}"`,
+      ip: req.ip,
+    });
+
     res.json(classItem);
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -76,11 +100,23 @@ router.put('/:id', async (req, res) => {
 });
 
 // Deletar turma
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req: AuthRequest, res) => {
   try {
+    const classItem = await prisma.class.findUnique({ where: { id: req.params.id } });
     await prisma.class.delete({
       where: { id: req.params.id },
     });
+
+    await logAction({
+      userId: req.user!.id,
+      userName: req.user!.role,
+      action: 'DELETE',
+      entity: 'class',
+      entityId: req.params.id,
+      details: `Deletou a turma "${classItem?.name ?? req.params.id}"`,
+      ip: req.ip,
+    });
+
     res.json({ message: 'Turma deletada com sucesso' });
   } catch (error) {
     res.status(500).json({ error: 'Erro ao deletar turma' });
