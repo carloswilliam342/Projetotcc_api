@@ -1,10 +1,13 @@
 import nodemailer from 'nodemailer';
+import dns from 'dns';
+
+// Força resolução DNS via IPv4 (Render não suporta IPv6 de saída)
+dns.setDefaultResultOrder('ipv4first');
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 587,
   secure: false, // Usa STARTTLS na porta 587 (recomendado)
-  family: 4, // Força IPv4 (Render não suporta IPv6 de saída)
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
@@ -12,7 +15,7 @@ const transporter = nodemailer.createTransport({
   tls: {
     rejectUnauthorized: false,
   },
-} as any);
+});
 
 export async function sendPasswordResetEmail(to: string, resetLink: string) {
   const html = `
