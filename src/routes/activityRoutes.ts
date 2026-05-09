@@ -59,17 +59,25 @@ router.post('/', async (req, res) => {
 // Atualizar atividade
 router.put('/:id', async (req, res) => {
   try {
-    const { steps, ...activityData } = req.body;
+    const { title, subject, description, visualResources, difficulty, adaptedFor, studentId, steps } = req.body;
+
     // Se steps foram enviados, deleta os antigos e cria os novos
     if (steps) {
       await prisma.activityStep.deleteMany({
         where: { activityId: req.params.id },
       });
     }
+
     const activity = await prisma.activity.update({
       where: { id: req.params.id },
       data: {
-        ...activityData,
+        ...(title !== undefined && { title }),
+        ...(subject !== undefined && { subject }),
+        ...(description !== undefined && { description }),
+        ...(visualResources !== undefined && { visualResources }),
+        ...(difficulty !== undefined && { difficulty }),
+        ...(adaptedFor !== undefined && { adaptedFor }),
+        ...(studentId !== undefined && { studentId: studentId || null }),
         steps: steps ? { create: steps } : undefined,
       },
       include: { 
@@ -79,6 +87,7 @@ router.put('/:id', async (req, res) => {
     });
     res.json(activity);
   } catch (error) {
+    console.error('Erro ao atualizar atividade:', error);
     res.status(500).json({ error: 'Erro ao atualizar atividade' });
   }
 });
