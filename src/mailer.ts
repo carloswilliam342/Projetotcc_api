@@ -6,8 +6,8 @@ dns.setDefaultResultOrder('ipv4first');
 
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // Usa STARTTLS na porta 587 (recomendado)
+  port: 465,
+  secure: true, // Usa SSL na porta 465
   auth: {
     user: process.env.SMTP_USER,
     pass: process.env.SMTP_PASS,
