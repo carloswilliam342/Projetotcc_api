@@ -9,7 +9,7 @@ router.get('/stats', async (req: AuthRequest, res) => {
   try {
     const now = new Date();
     
-    const isAdmin = req.user?.role === 'admin';
+    const isAdmin = req.user?.role === 'master';
     const teacherId = req.user?.id;
 
     // ─── Totais gerais ────────────────────────────────────────────────────
@@ -17,7 +17,7 @@ router.get('/stats', async (req: AuthRequest, res) => {
       isAdmin ? prisma.teacher.count({ where: { status: 'active' } }) : 1, // Logged in teacher is 1
       prisma.student.count({ where: isAdmin ? undefined : { class: { teacherId } } }),
       prisma.class.count({ where: isAdmin ? undefined : { teacherId } }),
-      prisma.activity.count(), // Activities are global or we should scope them?
+      prisma.activity.count({ where: isAdmin ? undefined : { teacherId } }),
     ]);
 
     const studentWhere = isAdmin ? {} : { class: { teacherId } };

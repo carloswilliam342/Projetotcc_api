@@ -19,6 +19,7 @@ model Teacher {
   createdAt DateTime @default(now())
 
   classes        Class[]
+  activities     Activity[]
   passwordResets PasswordReset[]
 
   @@map("teachers")
@@ -81,8 +82,10 @@ model Activity {
   difficulty      Int
   adaptedFor      String[] @default([])
   studentId       String?
+  teacherId       String?
   createdAt       DateTime @default(now())
 
+  teacher            Teacher?            @relation(fields: [teacherId], references: [id])
   student            Student?            @relation(fields: [studentId], references: [id], onDelete: SetNull)
   steps              ActivityStep[]
   routines           RoutineItem[]

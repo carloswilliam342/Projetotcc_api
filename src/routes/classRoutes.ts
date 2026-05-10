@@ -18,7 +18,7 @@ const updateClassSchema = classSchema.partial();
 // Listar todas as turmas
 router.get('/', async (req: AuthRequest, res) => {
   try {
-    const whereClause = req.user?.role === 'admin' ? {} : { teacherId: req.user?.id };
+    const whereClause = req.user?.role === 'master' ? {} : { teacherId: req.user?.id };
 
     const classes = await prisma.class.findMany({
       where: whereClause,
@@ -40,7 +40,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
     });
     if (!classItem) return res.status(404).json({ error: 'Turma não encontrada' });
 
-    if (req.user?.role !== 'admin' && classItem.teacherId !== req.user?.id) {
+    if (req.user?.role !== 'master' && classItem.teacherId !== req.user?.id) {
       return res.status(403).json({ error: 'Acesso negado a esta turma' });
     }
 
@@ -55,7 +55,7 @@ router.post('/', async (req: AuthRequest, res) => {
   try {
     const data = classSchema.parse(req.body);
     
-    if (req.user?.role !== 'admin') {
+    if (req.user?.role !== 'master') {
       data.teacherId = req.user!.id;
     }
 
@@ -89,7 +89,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
     const existingClass = await prisma.class.findUnique({ where: { id: (req.params.id as string) } });
     if (!existingClass) return res.status(404).json({ error: 'Turma não encontrada' });
 
-    if (req.user?.role !== 'admin' && existingClass.teacherId !== req.user?.id) {
+    if (req.user?.role !== 'master' && existingClass.teacherId !== req.user?.id) {
       return res.status(403).json({ error: 'Acesso negado a esta turma' });
     }
 
@@ -125,7 +125,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
     const classItem = await prisma.class.findUnique({ where: { id: (req.params.id as string) } });
     if (!classItem) return res.status(404).json({ error: 'Turma não encontrada' });
 
-    if (req.user?.role !== 'admin' && classItem.teacherId !== req.user?.id) {
+    if (req.user?.role !== 'master' && classItem.teacherId !== req.user?.id) {
       return res.status(403).json({ error: 'Acesso negado a esta turma' });
     }
 
