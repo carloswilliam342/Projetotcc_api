@@ -8,6 +8,7 @@ const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
   port: 465,
   secure: true, // Usa SSL na porta 465
+  // @ts-ignore - A propriedade 'family' existe na conexão subjacente do Node.js, mas falta na tipagem do Nodemailer
   family: 4, // Força explicitamente o uso de IPv4 na conexão do Nodemailer (Evita erro ENETUNREACH no Render)
   auth: {
     user: process.env.SMTP_USER,
