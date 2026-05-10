@@ -16,9 +16,12 @@ const classSchema = z.object({
 const updateClassSchema = classSchema.partial();
 
 // Listar todas as turmas
-router.get('/', async (_req, res) => {
+router.get('/', async (req: AuthRequest, res) => {
   try {
+    const whereClause = req.user?.role === 'admin' ? {} : { teacherId: req.user?.id };
+
     const classes = await prisma.class.findMany({
+      where: whereClause,
       include: { teacher: true, students: { include: { profile: true } } },
       orderBy: { name: 'asc' },
     });
@@ -29,13 +32,18 @@ router.get('/', async (_req, res) => {
 });
 
 // Buscar turma por ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: AuthRequest, res) => {
   try {
     const classItem = await prisma.class.findUnique({
       where: { id: (req.params.id as string) },
       include: { teacher: true, students: true },
     });
     if (!classItem) return res.status(404).json({ error: 'Turma não encontrada' });
+
+    if (req.user?.role !== 'admin' && classItem.teacherId !== req.user?.id) {
+      return res.status(403).json({ error: 'Acesso negado a esta turma' });
+    }
+
     return res.json(classItem);
   } catch (error) {
     return res.status(500).json({ error: 'Erro ao buscar turma' });
@@ -46,6 +54,11 @@ router.get('/:id', async (req, res) => {
 router.post('/', async (req: AuthRequest, res) => {
   try {
     const data = classSchema.parse(req.body);
+    
+    if (req.user?.role !== 'admin') {
+      data.teacherId = req.user!.id;
+    }
+
     const classItem = await prisma.class.create({
       data,
       include: { teacher: true },
@@ -73,6 +86,13 @@ router.post('/', async (req: AuthRequest, res) => {
 // Atualizar turma
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
+    const existingClass = await prisma.class.findUnique({ where: { id: (req.params.id as string) } });
+    if (!existingClass) return res.status(404).json({ error: 'Turma não encontrada' });
+
+    if (req.user?.role !== 'admin' && existingClass.teacherId !== req.user?.id) {
+      return res.status(403).json({ error: 'Acesso negado a esta turma' });
+    }
+
     const data = updateClassSchema.parse(req.body);
     const classItem = await prisma.class.update({
       where: { id: (req.params.id as string) },
@@ -103,6 +123,12 @@ router.put('/:id', async (req: AuthRequest, res) => {
 router.delete('/:id', async (req: AuthRequest, res) => {
   try {
     const classItem = await prisma.class.findUnique({ where: { id: (req.params.id as string) } });
+    if (!classItem) return res.status(404).json({ error: 'Turma não encontrada' });
+
+    if (req.user?.role !== 'admin' && classItem.teacherId !== req.user?.id) {
+      return res.status(403).json({ error: 'Acesso negado a esta turma' });
+    }
+
     await prisma.class.delete({
       where: { id: (req.params.id as string) },
     });

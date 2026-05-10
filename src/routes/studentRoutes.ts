@@ -20,7 +20,7 @@ const studentSchema = z.object({
 const updateStudentSchema = studentSchema.partial();
 
 // Listar alunos (com paginação e busca)
-router.get('/', async (req, res) => {
+router.get('/', async (req: AuthRequest, res) => {
   try {
     const page = parseInt(req.query.page as string) || 1;
     const limit = parseInt(req.query.limit as string) || 10;
@@ -30,6 +30,10 @@ router.get('/', async (req, res) => {
 
     const baseWhere: any = {};
     if (classId) baseWhere.classId = classId as string;
+    
+    if (req.user?.role !== 'admin') {
+      baseWhere.class = { teacherId: req.user?.id };
+    }
     
     if (search) {
       baseWhere.OR = [
@@ -64,13 +68,18 @@ router.get('/', async (req, res) => {
 });
 
 // Buscar aluno por ID
-router.get('/:id', async (req, res) => {
+router.get('/:id', async (req: AuthRequest, res) => {
   try {
     const student = await prisma.student.findUnique({
       where: { id: (req.params.id as string) },
       include: { class: true, profile: true, observations: true, performanceRecords: true },
     });
     if (!student) return res.status(404).json({ error: 'Aluno não encontrado' });
+    
+    if (req.user?.role !== 'admin' && student.class.teacherId !== req.user?.id) {
+      return res.status(403).json({ error: 'Acesso negado a este aluno' });
+    }
+    
     return res.json(student);
   } catch (error) {
     return res.status(500).json({ error: 'Erro ao buscar aluno' });
@@ -108,6 +117,17 @@ router.post('/', async (req: AuthRequest, res) => {
 // Atualizar aluno
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
+    const existingStudent = await prisma.student.findUnique({
+      where: { id: (req.params.id as string) },
+      include: { class: true },
+    });
+
+    if (!existingStudent) return res.status(404).json({ error: 'Aluno não encontrado' });
+
+    if (req.user?.role !== 'admin' && existingStudent.class.teacherId !== req.user?.id) {
+      return res.status(403).json({ error: 'Acesso negado a este aluno' });
+    }
+
     const data = updateStudentSchema.parse(req.body);
     const student = await prisma.student.update({
       where: { id: (req.params.id as string) },

@@ -1,23 +1,31 @@
 import { Router } from 'express';
 import prisma from '../prisma';
+import type { AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
 // GET /api/dashboard/stats
-router.get('/stats', async (_req, res) => {
+router.get('/stats', async (req: AuthRequest, res) => {
   try {
     const now = new Date();
+    
+    const isAdmin = req.user?.role === 'admin';
+    const teacherId = req.user?.id;
 
     // ─── Totais gerais ────────────────────────────────────────────────────
     const [totalTeachers, totalStudents, totalClasses, totalActivities] = await Promise.all([
-      prisma.teacher.count({ where: { status: 'active' } }),
-      prisma.student.count(),
-      prisma.class.count(),
-      prisma.activity.count(),
+      isAdmin ? prisma.teacher.count({ where: { status: 'active' } }) : 1, // Logged in teacher is 1
+      prisma.student.count({ where: isAdmin ? undefined : { class: { teacherId } } }),
+      prisma.class.count({ where: isAdmin ? undefined : { teacherId } }),
+      prisma.activity.count(), // Activities are global or we should scope them?
     ]);
+
+    const studentWhere = isAdmin ? {} : { class: { teacherId } };
+    const performanceWhere = isAdmin ? {} : { student: { class: { teacherId } } };
 
     const studentsWithNeeds = await prisma.student.count({
       where: {
+        ...studentWhere,
         OR: [
           { needsTea: true },
           { needsTdah: true },
@@ -28,9 +36,9 @@ router.get('/stats', async (_req, res) => {
 
     // ─── Completion stats ─────────────────────────────────────────────────
     const [completed, completedWithHelp, notCompleted] = await Promise.all([
-      prisma.performanceRecord.count({ where: { status: 'completed' } }),
-      prisma.performanceRecord.count({ where: { status: 'completed_with_help' } }),
-      prisma.performanceRecord.count({ where: { status: 'not_completed' } }),
+      prisma.performanceRecord.count({ where: { status: 'completed', ...performanceWhere } }),
+      prisma.performanceRecord.count({ where: { status: 'completed_with_help', ...performanceWhere } }),
+      prisma.performanceRecord.count({ where: { status: 'not_completed', ...performanceWhere } }),
     ]);
 
     // ─── Atividade semanal (últimos 7 dias) ───────────────────────────────
@@ -43,7 +51,7 @@ router.get('/stats', async (_req, res) => {
       const dateStr = date.toISOString().split('T')[0]; // YYYY-MM-DD
 
       const count = await prisma.performanceRecord.count({
-        where: { date: dateStr },
+        where: { date: dateStr, ...performanceWhere },
       });
 
       weeklyActivity.push({
@@ -55,7 +63,7 @@ router.get('/stats', async (_req, res) => {
     // ─── Top performers (alunos com mais atividades concluídas) ───────────
     const topRaw = await prisma.performanceRecord.groupBy({
       by: ['studentId'],
-      where: { status: 'completed' },
+      where: { status: 'completed', ...performanceWhere },
       _count: { id: true },
       orderBy: { _count: { id: 'desc' } },
       take: 5,
