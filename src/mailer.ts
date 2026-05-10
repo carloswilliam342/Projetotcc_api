@@ -1,22 +1,6 @@
-import nodemailer from 'nodemailer';
-import dns from 'dns';
+import { Resend } from 'resend';
 
-// Tenta forçar resolução DNS via IPv4 globalmente no Node.js
-dns.setDefaultResultOrder('ipv4first');
-
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
-  port: 465,
-  secure: true, // Usa SSL na porta 465
-  family: 4, // Força explicitamente o uso de IPv4 na conexão do Nodemailer (Evita erro ENETUNREACH no Render)
-  auth: {
-    user: process.env.SMTP_USER,
-    pass: process.env.SMTP_PASS,
-  },
-  tls: {
-    rejectUnauthorized: false,
-  },
-} as any);
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export async function sendPasswordResetEmail(to: string, resetLink: string) {
   const html = `
@@ -50,10 +34,17 @@ export async function sendPasswordResetEmail(to: string, resetLink: string) {
     </div>
   `;
 
-  await transporter.sendMail({
-    from: `"Sinapse" <${process.env.SMTP_USER}>`,
-    to,
+  const { data, error } = await resend.emails.send({
+    from: 'Sinapse <onboarding@resend.dev>',
+    to: [to],
     subject: 'Redefinição de Senha — Sinapse',
-    html,
+    html: html,
   });
+
+  if (error) {
+    console.error('[PasswordReset] Erro da API Resend:', error);
+    throw new Error(error.message);
+  }
+
+  return data;
 }
