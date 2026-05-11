@@ -9,7 +9,7 @@ router.get('/stats', async (req: AuthRequest, res) => {
   try {
     const now = new Date();
     
-    const isAdmin = req.user?.role === 'master';
+    const isAdmin = (req.user?.role === 'master' || req.user?.role === 'admin');
     const teacherId = req.user?.id;
 
     // ─── Totais gerais ────────────────────────────────────────────────────

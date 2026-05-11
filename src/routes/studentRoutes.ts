@@ -31,7 +31,7 @@ router.get('/', async (req: AuthRequest, res) => {
     const baseWhere: any = {};
     if (classId) baseWhere.classId = classId as string;
     
-    if (req.user?.role !== 'master') {
+    if ((req.user?.role !== 'master' && req.user?.role !== 'admin')) {
       baseWhere.class = { teacherId: req.user?.id };
     }
     
@@ -76,7 +76,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
     });
     if (!student) return res.status(404).json({ error: 'Aluno não encontrado' });
     
-    if (req.user?.role !== 'master' && student.class.teacherId !== req.user?.id) {
+    if ((req.user?.role !== 'master' && req.user?.role !== 'admin') && student.class.teacherId !== req.user?.id) {
       return res.status(403).json({ error: 'Acesso negado a este aluno' });
     }
     
@@ -124,7 +124,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
 
     if (!existingStudent) return res.status(404).json({ error: 'Aluno não encontrado' });
 
-    if (req.user?.role !== 'master' && existingStudent.class.teacherId !== req.user?.id) {
+    if ((req.user?.role !== 'master' && req.user?.role !== 'admin') && existingStudent.class.teacherId !== req.user?.id) {
       return res.status(403).json({ error: 'Acesso negado a este aluno' });
     }
 

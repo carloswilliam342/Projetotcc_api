@@ -7,7 +7,7 @@ const router = Router();
 // Listar todas as atividades
 router.get('/', async (req: AuthRequest, res) => {
   try {
-    const whereClause = req.user?.role === 'master' ? {} : { teacherId: req.user?.id };
+    const whereClause = (req.user?.role === 'master' || req.user?.role === 'admin') ? {} : { teacherId: req.user?.id };
 
     const activities = await prisma.activity.findMany({
       where: whereClause,
@@ -35,7 +35,7 @@ router.get('/:id', async (req: AuthRequest, res) => {
     });
     if (!activity) return res.status(404).json({ error: 'Atividade não encontrada' });
 
-    if (req.user?.role !== 'master' && activity.teacherId !== req.user?.id) {
+    if ((req.user?.role !== 'master' && req.user?.role !== 'admin') && activity.teacherId !== req.user?.id) {
       return res.status(403).json({ error: 'Acesso negado a esta atividade' });
     }
 
@@ -50,7 +50,7 @@ router.post('/', async (req: AuthRequest, res) => {
   try {
     const { steps, ...activityData } = req.body;
     
-    if (req.user?.role !== 'master') {
+    if ((req.user?.role !== 'master' && req.user?.role !== 'admin')) {
       activityData.teacherId = req.user?.id;
     }
 
@@ -76,7 +76,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
     const existingActivity = await prisma.activity.findUnique({ where: { id: req.params.id } });
     if (!existingActivity) return res.status(404).json({ error: 'Atividade não encontrada' });
 
-    if (req.user?.role !== 'master' && existingActivity.teacherId !== req.user?.id) {
+    if ((req.user?.role !== 'master' && req.user?.role !== 'admin') && existingActivity.teacherId !== req.user?.id) {
       return res.status(403).json({ error: 'Acesso negado a esta atividade' });
     }
 
