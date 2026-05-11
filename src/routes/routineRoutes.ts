@@ -1,14 +1,22 @@
 import { Router } from 'express';
 import prisma from '../prisma';
+import type { AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
 // Listar rotinas (com filtro opcional por turma)
-router.get('/', async (req, res) => {
+router.get('/', async (req: AuthRequest, res) => {
   try {
     const { classId } = req.query;
+    const where: any = {};
+    if (classId) where.classId = classId as string;
+
+    if (req.user?.role !== 'master' && req.user?.role !== 'admin') {
+      where.class = { teacherId: req.user?.id };
+    }
+
     const routines = await prisma.routineItem.findMany({
-      where: classId ? { classId: classId as string } : undefined,
+      where,
       include: { class: true, activity: true },
       orderBy: [{ dayOfWeek: 'asc' }, { time: 'asc' }],
     });
@@ -19,8 +27,15 @@ router.get('/', async (req, res) => {
 });
 
 // Criar rotina
-router.post('/', async (req, res) => {
+router.post('/', async (req: AuthRequest, res) => {
   try {
+    if (req.user?.role !== 'master' && req.user?.role !== 'admin') {
+      const classItem = await prisma.class.findUnique({ where: { id: req.body.classId } });
+      if (!classItem || classItem.teacherId !== req.user?.id) {
+        return res.status(403).json({ error: 'Acesso negado: a turma não pertence a você' });
+      }
+    }
+
     const routine = await prisma.routineItem.create({
       data: req.body,
       include: { class: true, activity: true },
@@ -32,10 +47,21 @@ router.post('/', async (req, res) => {
 });
 
 // Atualizar rotina
-router.put('/:id', async (req, res) => {
+router.put('/:id', async (req: AuthRequest, res) => {
   try {
+    const existingRoutine = await prisma.routineItem.findUnique({
+      where: { id: (req.params.id as string) },
+      include: { class: true },
+    });
+
+    if (!existingRoutine) return res.status(404).json({ error: 'Rotina não encontrada' });
+
+    if (req.user?.role !== 'master' && req.user?.role !== 'admin' && existingRoutine.class.teacherId !== req.user?.id) {
+      return res.status(403).json({ error: 'Acesso negado: a turma não pertence a você' });
+    }
+
     const routine = await prisma.routineItem.update({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
       data: req.body,
       include: { class: true, activity: true },
     });
@@ -46,10 +72,21 @@ router.put('/:id', async (req, res) => {
 });
 
 // Deletar rotina
-router.delete('/:id', async (req, res) => {
+router.delete('/:id', async (req: AuthRequest, res) => {
   try {
+    const existingRoutine = await prisma.routineItem.findUnique({
+      where: { id: (req.params.id as string) },
+      include: { class: true },
+    });
+
+    if (!existingRoutine) return res.status(404).json({ error: 'Rotina não encontrada' });
+
+    if (req.user?.role !== 'master' && req.user?.role !== 'admin' && existingRoutine.class.teacherId !== req.user?.id) {
+      return res.status(403).json({ error: 'Acesso negado: a turma não pertence a você' });
+    }
+
     await prisma.routineItem.delete({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
     });
     res.json({ message: 'Rotina deletada com sucesso' });
   } catch (error) {
