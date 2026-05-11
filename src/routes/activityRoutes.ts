@@ -50,6 +50,10 @@ router.post('/', async (req: AuthRequest, res) => {
   try {
     const { steps, ...activityData } = req.body;
     
+    if (activityData.studentId === '') {
+      activityData.studentId = null;
+    }
+
     if ((req.user?.role !== 'master' && req.user?.role !== 'admin')) {
       activityData.teacherId = req.user?.id;
     }

@@ -30,6 +30,11 @@ router.get('/', async (req: AuthRequest, res) => {
 // Criar observação
 router.post('/', async (req: AuthRequest, res) => {
   try {
+    const data = { ...req.body };
+    if (data.activityId === '') {
+      data.activityId = null;
+    }
+
     if (req.user?.role !== 'master' && req.user?.role !== 'admin') {
       const classItem = await prisma.class.findUnique({ where: { id: req.body.classId } });
       if (!classItem || classItem.teacherId !== req.user?.id) {
@@ -38,7 +43,7 @@ router.post('/', async (req: AuthRequest, res) => {
     }
 
     const observation = await prisma.lessonObservation.create({
-      data: req.body,
+      data,
       include: { student: true, class: true },
     });
     res.status(201).json(observation);

@@ -29,6 +29,11 @@ router.get('/', async (req: AuthRequest, res) => {
 // Criar rotina
 router.post('/', async (req: AuthRequest, res) => {
   try {
+    const data = { ...req.body };
+    if (data.activityId === '') {
+      data.activityId = null;
+    }
+
     if (req.user?.role !== 'master' && req.user?.role !== 'admin') {
       const classItem = await prisma.class.findUnique({ where: { id: req.body.classId } });
       if (!classItem || classItem.teacherId !== req.user?.id) {
@@ -37,7 +42,7 @@ router.post('/', async (req: AuthRequest, res) => {
     }
 
     const routine = await prisma.routineItem.create({
-      data: req.body,
+      data,
       include: { class: true, activity: true },
     });
     res.status(201).json(routine);
@@ -49,6 +54,11 @@ router.post('/', async (req: AuthRequest, res) => {
 // Atualizar rotina
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
+    const data = { ...req.body };
+    if (data.activityId === '') {
+      data.activityId = null;
+    }
+
     const existingRoutine = await prisma.routineItem.findUnique({
       where: { id: (req.params.id as string) },
       include: { class: true },
@@ -62,7 +72,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
 
     const routine = await prisma.routineItem.update({
       where: { id: (req.params.id as string) },
-      data: req.body,
+      data,
       include: { class: true, activity: true },
     });
     res.json(routine);
