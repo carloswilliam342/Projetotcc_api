@@ -27,7 +27,7 @@ router.get('/', async (req: AuthRequest, res) => {
 router.get('/:id', async (req: AuthRequest, res) => {
   try {
     const activity = await prisma.activity.findUnique({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
       include: { 
         steps: { orderBy: { order: 'asc' } },
         student: true,
@@ -73,7 +73,7 @@ router.post('/', async (req: AuthRequest, res) => {
 // Atualizar atividade
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
-    const existingActivity = await prisma.activity.findUnique({ where: { id: req.params.id } });
+    const existingActivity = await prisma.activity.findUnique({ where: { id: (req.params.id as string) } });
     if (!existingActivity) return res.status(404).json({ error: 'Atividade não encontrada' });
 
     if ((req.user?.role !== 'master' && req.user?.role !== 'admin') && existingActivity.teacherId !== req.user?.id) {
@@ -85,12 +85,12 @@ router.put('/:id', async (req: AuthRequest, res) => {
     // Se steps foram enviados, deleta os antigos e cria os novos
     if (steps) {
       await prisma.activityStep.deleteMany({
-        where: { activityId: req.params.id },
+        where: { activityId: (req.params.id as string) },
       });
     }
 
     const activity = await prisma.activity.update({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
       data: {
         ...(title !== undefined && { title }),
         ...(subject !== undefined && { subject }),
@@ -116,7 +116,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
 // Deletar atividade (steps são deletados em cascata)
 router.delete('/:id', async (req: AuthRequest, res) => {
   try {
-    const existingActivity = await prisma.activity.findUnique({ where: { id: req.params.id } });
+    const existingActivity = await prisma.activity.findUnique({ where: { id: (req.params.id as string) } });
     if (!existingActivity) return res.status(404).json({ error: 'Atividade não encontrada' });
 
     if (req.user?.role !== 'admin' && existingActivity.teacherId !== req.user?.id) {
@@ -124,7 +124,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
     }
 
     await prisma.activity.delete({
-      where: { id: req.params.id },
+      where: { id: (req.params.id as string) },
     });
     res.json({ message: 'Atividade deletada com sucesso' });
   } catch (error) {
