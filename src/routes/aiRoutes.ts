@@ -16,34 +16,37 @@ router.post('/suggest-activity', async (req, res) => {
 
     const { studentId, subject, theme, difficultyLevel } = req.body;
 
-    if (!studentId || !subject || !theme) {
-      return res.status(400).json({ error: 'Estudante (studentId), disciplina (subject) e tema (theme) são obrigatórios.' });
+    if (!subject || !theme) {
+      return res.status(400).json({ error: 'Disciplina (subject) e tema (theme) são obrigatórios.' });
     }
 
-    // 1. Buscar o aluno com todos os dados relevantes de histórico
-    const student = await prisma.student.findUnique({
-      where: { id: studentId },
-      include: {
-        profile: true,
-        observations: {
-          orderBy: { date: 'desc' },
-          take: 5 // Pegar as 5 últimas observações para contexto
-        },
-        performanceRecords: {
-          orderBy: { date: 'desc' },
-          take: 5 // Pegar o desempenho das 5 últimas atividades
-        }
-      }
-    });
-
-    if (!student) {
-      return res.status(404).json({ error: 'Aluno não encontrado.' });
-    }
-
-    const profile = student.profile;
+    let contextStr = '';
     
-    // 2. Montar o texto de contexto do aluno
-    let contextStr = `Aluno: ${student.name}\n`;
+    if (studentId) {
+      // 1. Buscar o aluno com todos os dados relevantes de histórico
+      const student = await prisma.student.findUnique({
+        where: { id: studentId },
+        include: {
+          profile: true,
+          observations: {
+            orderBy: { date: 'desc' },
+            take: 5 // Pegar as 5 últimas observações para contexto
+          },
+          performanceRecords: {
+            orderBy: { date: 'desc' },
+            take: 5 // Pegar o desempenho das 5 últimas atividades
+          }
+        }
+      });
+
+      if (!student) {
+        return res.status(404).json({ error: 'Aluno não encontrado.' });
+      }
+
+      const profile = student.profile;
+      
+      // 2. Montar o texto de contexto do aluno
+      contextStr = `Aluno: ${student.name}\n`;
     
     if (student.needsTea || student.needsTdah || student.otherNeeds) {
        contextStr += `Necessidades: `;
@@ -74,11 +77,14 @@ router.post('/suggest-activity', async (req, res) => {
       });
     }
 
-    if (student.performanceRecords && student.performanceRecords.length > 0) {
-      contextStr += `\nDesempenho Recente em Atividades Anteriores:\n`;
-      student.performanceRecords.forEach(perf => {
-         contextStr += `- Atividade: ${perf.activityTitle}, Dificuldade (1-5): ${perf.difficultyLevel}, Status: ${perf.status}. Notas: ${perf.notes}\n`;
-      });
+      if (student.performanceRecords && student.performanceRecords.length > 0) {
+        contextStr += `\nDesempenho Recente em Atividades Anteriores:\n`;
+        student.performanceRecords.forEach(perf => {
+           contextStr += `- Atividade: ${perf.activityTitle}, Dificuldade (1-5): ${perf.difficultyLevel}, Status: ${perf.status}. Notas: ${perf.notes}\n`;
+        });
+      }
+    } else {
+      contextStr = `Atividade genérica (não direcionada a um aluno específico).\nCrie uma atividade inclusiva e acessível para a turma de forma geral, com foco na aprendizagem neurodivergente se pertinente ao tema.`;
     }
 
     // 3. Configurar o Schema de retorno do Gemini (JSON Estrito)
@@ -125,7 +131,7 @@ router.post('/suggest-activity', async (req, res) => {
     const prompt = `Você é um assistente pedagógico especializado em educação inclusiva.
 Sua tarefa é criar uma sugestão detalhada de atividade escolar.
 
-O professor está planejando uma atividade da disciplina "${subject}" focada no conteúdo/tema "${theme}" para o aluno descrito abaixo.
+O professor está planejando uma atividade da disciplina "${subject}" focada no conteúdo/tema "${theme}"${studentId ? ' para o aluno descrito abaixo.' : '.'}
 ${difficultyLevel ? `A dificuldade desejada pelo professor (1 a 5) é: ${difficultyLevel}.` : ''}
 
 === PERFIL E HISTÓRICO DO ALUNO ===
