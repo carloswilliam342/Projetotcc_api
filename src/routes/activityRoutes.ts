@@ -61,7 +61,7 @@ router.post('/', async (req: AuthRequest, res) => {
     const activity = await prisma.activity.create({
       data: {
         ...activityData,
-        steps: steps ? { create: steps } : undefined,
+        steps: steps ? { create: steps.map((s: any) => ({ order: s.order, description: s.description })) } : undefined,
       },
       include: { 
         steps: { orderBy: { order: 'asc' } },
@@ -103,7 +103,7 @@ router.put('/:id', async (req: AuthRequest, res) => {
         ...(difficulty !== undefined && { difficulty }),
         ...(adaptedFor !== undefined && { adaptedFor }),
         ...(studentId !== undefined && { studentId: studentId || null }),
-        steps: steps ? { create: steps } : undefined,
+        steps: steps ? { create: steps.map((s: any) => ({ order: s.order, description: s.description })) } : undefined,
       },
       include: { 
         steps: { orderBy: { order: 'asc' } },

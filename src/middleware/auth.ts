@@ -18,7 +18,7 @@ export function authenticateToken(req: AuthRequest, res: Response, next: NextFun
     req.user = payload;
     next();
   } catch {
-    return res.status(403).json({ error: 'Token inválido ou expirado' });
+    return res.status(401).json({ error: 'Token inválido ou expirado' });
   }
 }
 
