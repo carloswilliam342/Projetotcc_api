@@ -90,6 +90,21 @@ router.get('/:id', async (req: AuthRequest, res) => {
 router.post('/', async (req: AuthRequest, res) => {
   try {
     const data = studentSchema.parse(req.body);
+
+    const existingStudent = await prisma.student.findFirst({
+      where: {
+        classId: data.classId,
+        OR: [
+          { registrationNumber: data.registrationNumber },
+          { name: data.name }
+        ]
+      }
+    });
+
+    if (existingStudent) {
+      return res.status(400).json({ error: 'Já existe um aluno com este nome ou matrícula nesta turma.' });
+    }
+
     const student = await prisma.student.create({
       data,
       include: { class: true },
