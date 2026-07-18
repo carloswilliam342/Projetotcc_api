@@ -50,6 +50,20 @@ router.post('/', async (req: AuthRequest, res) => {
   try {
     const { steps, ...activityData } = req.body;
     
+    // Prevenção de duplicação: verificar se existe atividade igual criada há menos de 10 segundos
+    const tenSecondsAgo = new Date(Date.now() - 10000);
+    const existingActivity = await prisma.activity.findFirst({
+      where: {
+        title: activityData.title,
+        subject: activityData.subject,
+        createdAt: { gte: tenSecondsAgo }
+      }
+    });
+
+    if (existingActivity) {
+      return res.status(400).json({ error: 'Uma atividade idêntica foi criada recentemente.' });
+    }
+    
     if (activityData.studentId === '') {
       activityData.studentId = null;
     }
