@@ -91,14 +91,14 @@ router.post('/', async (req: AuthRequest, res) => {
   try {
     const data = studentSchema.parse(req.body);
 
-<<<<<<< HEAD
     // Professor só pode cadastrar alunos nas próprias turmas
     if (req.user?.role !== 'master' && req.user?.role !== 'admin') {
       const classItem = await prisma.class.findUnique({ where: { id: data.classId } });
       if (!classItem || classItem.teacherId !== req.user?.id) {
         return res.status(403).json({ error: 'Acesso negado: a turma não pertence a você' });
       }
-=======
+    }
+
     const existingStudent = await prisma.student.findFirst({
       where: {
         classId: data.classId,
@@ -111,7 +111,6 @@ router.post('/', async (req: AuthRequest, res) => {
 
     if (existingStudent) {
       return res.status(400).json({ error: 'Já existe um aluno com este nome ou matrícula nesta turma.' });
->>>>>>> b6ef764065f5bb225936379036339fd60bd5a862
     }
 
     const student = await prisma.student.create({
