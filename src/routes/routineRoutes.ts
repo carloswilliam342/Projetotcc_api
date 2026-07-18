@@ -1,8 +1,22 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import prisma from '../prisma';
 import type { AuthRequest } from '../middleware/auth';
 
 const router = Router();
+
+const routineSchema = z.object({
+  classId: z.string().uuid('ID da turma inválido'),
+  dayOfWeek: z.number().int().min(0).max(6),
+  time: z.string().min(1, 'Horário é obrigatório'),
+  title: z.string().min(1, 'Título é obrigatório'),
+  activityId: z.string().uuid().nullable().optional().or(z.literal('').transform(() => null)),
+  reminder: z.boolean().default(false),
+  reminderText: z.string().nullable().optional(),
+  color: z.string().min(1, 'Cor é obrigatória'),
+});
+
+const updateRoutineSchema = routineSchema.partial();
 
 // Listar rotinas (com filtro opcional por turma)
 router.get('/', async (req: AuthRequest, res) => {
@@ -29,13 +43,10 @@ router.get('/', async (req: AuthRequest, res) => {
 // Criar rotina
 router.post('/', async (req: AuthRequest, res) => {
   try {
-    const data = { ...req.body };
-    if (data.activityId === '') {
-      data.activityId = null;
-    }
+    const data = routineSchema.parse(req.body);
 
     if (req.user?.role !== 'master' && req.user?.role !== 'admin') {
-      const classItem = await prisma.class.findUnique({ where: { id: req.body.classId } });
+      const classItem = await prisma.class.findUnique({ where: { id: data.classId } });
       if (!classItem || classItem.teacherId !== req.user?.id) {
         return res.status(403).json({ error: 'Acesso negado: a turma não pertence a você' });
       }
@@ -47,6 +58,9 @@ router.post('/', async (req: AuthRequest, res) => {
     });
     res.status(201).json(routine);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Dados inválidos', details: error.issues });
+    }
     res.status(500).json({ error: 'Erro ao criar rotina' });
   }
 });
@@ -54,10 +68,7 @@ router.post('/', async (req: AuthRequest, res) => {
 // Atualizar rotina
 router.put('/:id', async (req: AuthRequest, res) => {
   try {
-    const data = { ...req.body };
-    if (data.activityId === '') {
-      data.activityId = null;
-    }
+    const data = updateRoutineSchema.parse(req.body);
 
     const existingRoutine = await prisma.routineItem.findUnique({
       where: { id: (req.params.id as string) },
@@ -77,6 +88,9 @@ router.put('/:id', async (req: AuthRequest, res) => {
     });
     res.json(routine);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Dados inválidos', details: error.issues });
+    }
     res.status(500).json({ error: 'Erro ao atualizar rotina' });
   }
 });

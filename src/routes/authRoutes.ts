@@ -26,10 +26,11 @@ router.post('/register', async (req, res) => {
       data: { name, email, login, password: hashedPassword, subject, status: 'active' },
     });
 
-    const { password: _, ...teacherWithoutPassword } = teacher;
-    return res.status(201).json({ user: teacherWithoutPassword });
+    // O omit global do Prisma já remove o password da resposta
+    return res.status(201).json({ user: teacher });
   } catch (error) {
-    return res.status(500).json({ error: 'Erro interno do servidor', details: String(error) });
+    console.error('[Auth] Erro no registro:', error);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 
@@ -40,6 +41,7 @@ router.post('/login', async (req, res) => {
 
     const teacher = await prisma.teacher.findFirst({
       where: { OR: [{ login }, { email: login }] },
+      omit: { password: false }, // login precisa do hash para comparar
     });
 
     const passwordMatch = teacher ? await bcrypt.compare(password, teacher.password) : false;
@@ -58,7 +60,8 @@ router.post('/login', async (req, res) => {
 
     return res.json({ user: teacherWithoutPassword, token });
   } catch (error) {
-    return res.status(500).json({ error: 'Erro interno do servidor', details: String(error) });
+    console.error('[Auth] Erro no login:', error);
+    return res.status(500).json({ error: 'Erro interno do servidor' });
   }
 });
 

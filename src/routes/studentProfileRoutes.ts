@@ -1,8 +1,16 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import prisma from '../prisma';
 import type { AuthRequest } from '../middleware/auth';
 
 const router = Router();
+
+const profileSchema = z.object({
+  neurodivergence: z.array(z.string()).default([]),
+  difficulties: z.array(z.string()).default([]),
+  performanceLevel: z.enum(['beginner', 'intermediate', 'advanced']).default('beginner'),
+  notes: z.string().default(''),
+});
 
 // Buscar perfil por studentId
 router.get('/:studentId', async (req: AuthRequest, res) => {
@@ -38,13 +46,17 @@ router.put('/:studentId', async (req: AuthRequest, res) => {
       }
     }
 
+    const data = profileSchema.parse(req.body);
     const profile = await prisma.studentProfile.upsert({
       where: { studentId },
-      update: req.body,
-      create: { ...req.body, studentId },
+      update: data,
+      create: { ...data, studentId },
     });
     res.json(profile);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Dados inválidos', details: error.issues });
+    }
     res.status(500).json({ error: 'Erro ao salvar perfil' });
   }
 });

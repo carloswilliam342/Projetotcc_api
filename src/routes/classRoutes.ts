@@ -129,9 +129,20 @@ router.delete('/:id', async (req: AuthRequest, res) => {
       return res.status(403).json({ error: 'Acesso negado a esta turma' });
     }
 
-    await prisma.class.delete({
-      where: { id: (req.params.id as string) },
-    });
+    // Remove dependências em transação — sem isso o delete falha por chave estrangeira
+    const classId = req.params.id as string;
+    const students = await prisma.student.findMany({ where: { classId }, select: { id: true } });
+    const studentIds = students.map(s => s.id);
+
+    await prisma.$transaction([
+      prisma.performanceRecord.deleteMany({ where: { studentId: { in: studentIds } } }),
+      prisma.lessonObservation.deleteMany({ where: { OR: [{ classId }, { studentId: { in: studentIds } }] } }),
+      prisma.studentProfile.deleteMany({ where: { studentId: { in: studentIds } } }),
+      prisma.routineItem.deleteMany({ where: { classId } }),
+      prisma.activity.updateMany({ where: { studentId: { in: studentIds } }, data: { studentId: null } }),
+      prisma.student.deleteMany({ where: { classId } }),
+      prisma.class.delete({ where: { id: classId } }),
+    ]);
 
     await logAction({
       userId: req.user!.id,

@@ -90,6 +90,15 @@ router.get('/:id', async (req: AuthRequest, res) => {
 router.post('/', async (req: AuthRequest, res) => {
   try {
     const data = studentSchema.parse(req.body);
+
+    // Professor só pode cadastrar alunos nas próprias turmas
+    if (req.user?.role !== 'master' && req.user?.role !== 'admin') {
+      const classItem = await prisma.class.findUnique({ where: { id: data.classId } });
+      if (!classItem || classItem.teacherId !== req.user?.id) {
+        return res.status(403).json({ error: 'Acesso negado: a turma não pertence a você' });
+      }
+    }
+
     const student = await prisma.student.create({
       data,
       include: { class: true },
@@ -129,6 +138,16 @@ router.put('/:id', async (req: AuthRequest, res) => {
     }
 
     const data = updateStudentSchema.parse(req.body);
+
+    // Ao trocar de turma, a turma de destino também precisa pertencer ao professor
+    if (data.classId && data.classId !== existingStudent.classId &&
+        req.user?.role !== 'master' && req.user?.role !== 'admin') {
+      const targetClass = await prisma.class.findUnique({ where: { id: data.classId } });
+      if (!targetClass || targetClass.teacherId !== req.user?.id) {
+        return res.status(403).json({ error: 'Acesso negado: a turma de destino não pertence a você' });
+      }
+    }
+
     const student = await prisma.student.update({
       where: { id: (req.params.id as string) },
       data,
@@ -151,6 +170,45 @@ router.put('/:id', async (req: AuthRequest, res) => {
       return res.status(400).json({ error: 'Dados inválidos', details: error.issues });
     }
     res.status(500).json({ error: 'Erro ao atualizar aluno' });
+  }
+});
+
+// Deletar aluno (remove perfil, observações e registros de desempenho em transação)
+router.delete('/:id', async (req: AuthRequest, res) => {
+  try {
+    const studentId = req.params.id as string;
+    const existingStudent = await prisma.student.findUnique({
+      where: { id: studentId },
+      include: { class: true },
+    });
+
+    if (!existingStudent) return res.status(404).json({ error: 'Aluno não encontrado' });
+
+    if ((req.user?.role !== 'master' && req.user?.role !== 'admin') && existingStudent.class.teacherId !== req.user?.id) {
+      return res.status(403).json({ error: 'Acesso negado a este aluno' });
+    }
+
+    await prisma.$transaction([
+      prisma.performanceRecord.deleteMany({ where: { studentId } }),
+      prisma.lessonObservation.deleteMany({ where: { studentId } }),
+      prisma.studentProfile.deleteMany({ where: { studentId } }),
+      prisma.activity.updateMany({ where: { studentId }, data: { studentId: null } }),
+      prisma.student.delete({ where: { id: studentId } }),
+    ]);
+
+    await logAction({
+      userId: req.user!.id,
+      userName: req.user!.role,
+      action: 'DELETE',
+      entity: 'student',
+      entityId: studentId,
+      details: `Deletou o aluno "${existingStudent.name}"`,
+      ip: req.ip,
+    });
+
+    res.json({ message: 'Aluno deletado com sucesso' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao deletar aluno' });
   }
 });
 

@@ -1,8 +1,26 @@
 import { Router } from 'express';
+import { z } from 'zod';
 import prisma from '../prisma';
 import type { AuthRequest } from '../middleware/auth';
 
 const router = Router();
+
+const observationSchema = z.object({
+  studentId: z.string().uuid('ID do aluno inválido'),
+  classId: z.string().uuid('ID da turma inválido'),
+  date: z.string().min(1, 'Data é obrigatória'),
+  behavior: z.enum(['excellent', 'good', 'regular', 'difficult']),
+  participation: z.enum(['high', 'medium', 'low']),
+  completion: z.enum(['completed', 'completed_with_help', 'not_completed']),
+  notes: z.string().default(''),
+  activityId: z.string().uuid().nullable().optional().or(z.literal('').transform(() => null)),
+});
+
+const updateObservationSchema = observationSchema.partial();
+
+function isAdmin(req: AuthRequest) {
+  return req.user?.role === 'master' || req.user?.role === 'admin';
+}
 
 // Listar observações (com filtros opcionais)
 router.get('/', async (req: AuthRequest, res) => {
@@ -12,7 +30,7 @@ router.get('/', async (req: AuthRequest, res) => {
     if (studentId) where.studentId = studentId as string;
     if (classId) where.classId = classId as string;
 
-    if (req.user?.role !== 'master' && req.user?.role !== 'admin') {
+    if (!isAdmin(req)) {
       where.class = { teacherId: req.user?.id };
     }
 
@@ -30,16 +48,18 @@ router.get('/', async (req: AuthRequest, res) => {
 // Criar observação
 router.post('/', async (req: AuthRequest, res) => {
   try {
-    const data = { ...req.body };
-    if (data.activityId === '') {
-      data.activityId = null;
-    }
+    const data = observationSchema.parse(req.body);
 
-    if (req.user?.role !== 'master' && req.user?.role !== 'admin') {
-      const classItem = await prisma.class.findUnique({ where: { id: req.body.classId } });
-      if (!classItem || classItem.teacherId !== req.user?.id) {
-        return res.status(403).json({ error: 'Acesso negado: a turma não pertence a você' });
-      }
+    // Aluno precisa pertencer à turma informada; turma precisa pertencer ao professor
+    const student = await prisma.student.findUnique({
+      where: { id: data.studentId },
+      include: { class: true },
+    });
+    if (!student || student.classId !== data.classId) {
+      return res.status(400).json({ error: 'O aluno não pertence à turma informada' });
+    }
+    if (!isAdmin(req) && student.class.teacherId !== req.user?.id) {
+      return res.status(403).json({ error: 'Acesso negado: a turma não pertence a você' });
     }
 
     const observation = await prisma.lessonObservation.create({
@@ -48,7 +68,58 @@ router.post('/', async (req: AuthRequest, res) => {
     });
     res.status(201).json(observation);
   } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Dados inválidos', details: error.issues });
+    }
     res.status(500).json({ error: 'Erro ao criar observação' });
+  }
+});
+
+// Atualizar observação
+router.put('/:id', async (req: AuthRequest, res) => {
+  try {
+    const existing = await prisma.lessonObservation.findUnique({
+      where: { id: req.params.id as string },
+      include: { class: true },
+    });
+    if (!existing) return res.status(404).json({ error: 'Observação não encontrada' });
+
+    if (!isAdmin(req) && existing.class.teacherId !== req.user?.id) {
+      return res.status(403).json({ error: 'Acesso negado a esta observação' });
+    }
+
+    const data = updateObservationSchema.parse(req.body);
+    const observation = await prisma.lessonObservation.update({
+      where: { id: req.params.id as string },
+      data,
+      include: { student: true, class: true },
+    });
+    res.json(observation);
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({ error: 'Dados inválidos', details: error.issues });
+    }
+    res.status(500).json({ error: 'Erro ao atualizar observação' });
+  }
+});
+
+// Deletar observação
+router.delete('/:id', async (req: AuthRequest, res) => {
+  try {
+    const existing = await prisma.lessonObservation.findUnique({
+      where: { id: req.params.id as string },
+      include: { class: true },
+    });
+    if (!existing) return res.status(404).json({ error: 'Observação não encontrada' });
+
+    if (!isAdmin(req) && existing.class.teacherId !== req.user?.id) {
+      return res.status(403).json({ error: 'Acesso negado a esta observação' });
+    }
+
+    await prisma.lessonObservation.delete({ where: { id: req.params.id as string } });
+    res.json({ message: 'Observação deletada com sucesso' });
+  } catch (error) {
+    res.status(500).json({ error: 'Erro ao deletar observação' });
   }
 });
 

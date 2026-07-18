@@ -86,15 +86,10 @@ router.put('/:id', async (req: AuthRequest, res) => {
 
     const { title, subject, description, visualResources, difficulty, adaptedFor, studentId, steps } = req.body;
 
-    // Se steps foram enviados, deleta os antigos e cria os novos
-    if (steps) {
-      await prisma.activityStep.deleteMany({
-        where: { activityId: (req.params.id as string) },
-      });
-    }
-
-    const activity = await prisma.activity.update({
-      where: { id: (req.params.id as string) },
+    // Delete dos steps antigos + update em transação: ou tudo acontece, ou nada
+    const activityId = req.params.id as string;
+    const updateOp = prisma.activity.update({
+      where: { id: activityId },
       data: {
         ...(title !== undefined && { title }),
         ...(subject !== undefined && { subject }),
@@ -105,12 +100,20 @@ router.put('/:id', async (req: AuthRequest, res) => {
         ...(studentId !== undefined && { studentId: studentId || null }),
         steps: steps ? { create: steps.map((s: any) => ({ order: s.order, description: s.description })) } : undefined,
       },
-      include: { 
+      include: {
         steps: { orderBy: { order: 'asc' } },
-        student: true, 
+        student: true,
       },
     });
-    res.json(activity);
+
+    const results = steps
+      ? await prisma.$transaction([
+          prisma.activityStep.deleteMany({ where: { activityId } }),
+          updateOp,
+        ])
+      : [null, await updateOp];
+
+    res.json(results[1]);
   } catch (error) {
     console.error('Erro ao atualizar atividade:', error);
     res.status(500).json({ error: 'Erro ao atualizar atividade' });
@@ -123,7 +126,7 @@ router.delete('/:id', async (req: AuthRequest, res) => {
     const existingActivity = await prisma.activity.findUnique({ where: { id: (req.params.id as string) } });
     if (!existingActivity) return res.status(404).json({ error: 'Atividade não encontrada' });
 
-    if (req.user?.role !== 'admin' && existingActivity.teacherId !== req.user?.id) {
+    if (req.user?.role !== 'master' && req.user?.role !== 'admin' && existingActivity.teacherId !== req.user?.id) {
       return res.status(403).json({ error: 'Acesso negado a esta atividade' });
     }
 

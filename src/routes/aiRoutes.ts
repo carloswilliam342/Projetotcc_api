@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import { GoogleGenerativeAI, Schema, SchemaType } from '@google/generative-ai';
 import prisma from '../prisma';
+import type { AuthRequest } from '../middleware/auth';
 
 const router = Router();
 
@@ -8,7 +9,7 @@ const router = Router();
 const apiKey = process.env.GEMINI_API_KEY;
 const genAI = apiKey ? new GoogleGenerativeAI(apiKey) : null;
 
-router.post('/suggest-activity', async (req, res) => {
+router.post('/suggest-activity', async (req: AuthRequest, res) => {
   try {
     if (!genAI) {
       return res.status(500).json({ error: 'Chave de API do Gemini não configurada no servidor (.env).' });
@@ -27,6 +28,7 @@ router.post('/suggest-activity', async (req, res) => {
       const student = await prisma.student.findUnique({
         where: { id: studentId },
         include: {
+          class: true,
           profile: true,
           observations: {
             orderBy: { date: 'desc' },
@@ -41,6 +43,11 @@ router.post('/suggest-activity', async (req, res) => {
 
       if (!student) {
         return res.status(404).json({ error: 'Aluno não encontrado.' });
+      }
+
+      // Professor só pode gerar sugestões para alunos das próprias turmas
+      if (req.user?.role !== 'master' && req.user?.role !== 'admin' && student.class.teacherId !== req.user?.id) {
+        return res.status(403).json({ error: 'Acesso negado: o aluno não pertence a sua turma.' });
       }
 
       const profile = student.profile;
